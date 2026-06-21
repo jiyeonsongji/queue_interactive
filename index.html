@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+  body { background: #f8f9fa; padding: 20px; color: #1a1a2e; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; color: #1a1a2e; }
+  .subtitle { font-size: 13px; color: #666; margin-bottom: 24px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tab { padding: 8px 18px; border-radius: 20px; border: 2px solid #e0e0e0; background: white; cursor: pointer; font-size: 13px; font-weight: 600; color: #555; transition: all 0.2s; }
+  .tab.active { background: #6c3483; border-color: #6c3483; color: white; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* --- LINEAR QUEUE --- */
+  .section-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; color: #4a235a; }
+  .queue-wrap { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 16px; }
+  .queue-label { font-size: 12px; font-weight: 600; color: #888; margin-bottom: 8px; }
+  .queue-row { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+  .arrow-label { font-size: 12px; color: #888; width: 60px; text-align: center; }
+  .cell { width: 64px; height: 48px; border: 2px solid #ddd; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: white; transition: all 0.3s; position: relative; }
+  .cell.filled { background: #e8d5f5; border-color: #9b59b6; color: #4a235a; }
+  .cell.front-cell { border-color: #e74c3c !important; }
+  .cell.rear-cell { border-color: #2980b9 !important; }
+  .cell.new { background: #d5f0e8; border-color: #27ae60; }
+  .cell.removing { background: #fde8e8; border-color: #e74c3c; }
+  .pointer-row { display: flex; align-items: flex-start; gap: 4px; }
+  .pointer { width: 64px; text-align: center; font-size: 11px; font-weight: 700; }
+  .ptr-front { color: #e74c3c; }
+  .ptr-rear { color: #2980b9; }
+  .controls { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; }
+  .btn-enqueue { background: #27ae60; color: white; }
+  .btn-enqueue:hover { background: #1e8449; }
+  .btn-dequeue { background: #e74c3c; color: white; }
+  .btn-dequeue:hover { background: #c0392b; }
+  .btn-reset { background: #95a5a6; color: white; }
+  .btn-reset:hover { background: #7f8c8d; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .status-bar { background: #f0f0f0; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-top: 12px; color: #444; }
+  .status-bar span { font-weight: 700; }
+
+  /* --- CIRCULAR QUEUE --- */
+  .circ-container { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+  .circ-svg-wrap { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+  .circ-info { flex: 1; min-width: 200px; background: white; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+  .info-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { color: #888; }
+  .info-val { font-weight: 700; color: #4a235a; }
+
+  /* --- DEQUE --- */
+  .deque-wrap { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 16px; }
+  .deque-arrows { display: flex; justify-content: space-between; font-size: 12px; color: #888; margin-bottom: 4px; padding: 0 60px; }
+  .deque-row { display: flex; align-items: center; gap: 4px; }
+  .deque-label-l { font-size: 11px; color: #e74c3c; font-weight: 700; width: 55px; text-align: center; }
+  .deque-label-r { font-size: 11px; color: #2980b9; font-weight: 700; width: 55px; text-align: center; }
+  .btn-dfront { background: #e74c3c; color: white; }
+  .btn-dfront:hover { background: #c0392b; }
+  .btn-drear { background: #2980b9; color: white; }
+  .btn-drear:hover { background: #1a6ca8; }
+
+  /* --- COMPARE --- */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .compare-card { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+  .compare-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+  .compare-card.stack h3 { color: #c0392b; }
+  .compare-card.queue h3 { color: #2980b9; }
+  .compare-card.circular h3 { color: #27ae60; }
+  .compare-card.deque h3 { color: #8e44ad; }
+  table { width: 100%; font-size: 12px; border-collapse: collapse; }
+  td, th { padding: 5px 8px; text-align: left; border-bottom: 1px solid #f0f0f0; }
+  th { font-weight: 700; color: #666; background: #f8f9fa; }
+  td:first-child { color: #888; }
+  td:last-child { font-weight: 600; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+  .badge-fifo { background: #d5f0e8; color: #1e8449; }
+  .badge-lifo { background: #fde8e8; color: #c0392b; }
+
+  .log { font-size: 12px; color: #555; margin-top: 8px; padding: 8px 12px; background: #f9f9f9; border-radius: 6px; border-left: 3px solid #9b59b6; min-height: 32px; }
+</style>
+</head>
+<body>
+<h1>📦 큐(Queue) 인터랙티브 시각화</h1>
+<p class="subtitle">탭을 눌러 각 구조를 직접 체험해보세요</p>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('linear')">선형 큐</div>
+  <div class="tab" onclick="showTab('circular')">원형 큐</div>
+  <div class="tab" onclick="showTab('deque')">데크(Deque)</div>
+  <div class="tab" onclick="showTab('compare')">한눈에 비교</div>
+</div>
+
+<!-- ===== LINEAR QUEUE ===== -->
+<div id="panel-linear" class="panel active">
+  <div class="queue-wrap">
+    <div class="section-title">선형 큐 (Linear Queue) — FIFO</div>
+    <div class="queue-label">← 출구(front)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;입구(rear) →</div>
+    <div class="queue-row" id="linear-cells"></div>
+    <div class="pointer-row" id="linear-ptrs"></div>
+    <div class="controls">
+      <button class="btn btn-enqueue" onclick="linearEnqueue()">enQueue ▶</button>
+      <button class="btn btn-dequeue" onclick="linearDequeue()">◀ deQueue</button>
+      <button class="btn btn-reset" onclick="linearReset()">초기화</button>
+    </div>
+    <div class="log" id="linear-log">버튼을 눌러 큐를 조작해보세요.</div>
+    <div class="status-bar" id="linear-status">front = <span>-1</span> &nbsp;|&nbsp; rear = <span>-1</span> &nbsp;|&nbsp; 상태: <span>공백</span></div>
+  </div>
+</div>
+
+<!-- ===== CIRCULAR QUEUE ===== -->
+<div id="panel-circular" class="panel">
+  <div class="queue-wrap">
+    <div class="section-title">원형 큐 (Circular Queue) — 나머지 연산(mod) 활용</div>
+    <div class="circ-container">
+      <div class="circ-svg-wrap">
+        <svg id="circ-svg" width="220" height="220" viewBox="0 0 220 220"></svg>
+      </div>
+      <div class="circ-info">
+        <div class="info-row"><span class="info-label">front</span><span class="info-val" id="cq-front">0</span></div>
+        <div class="info-row"><span class="info-label">rear</span><span class="info-val" id="cq-rear">0</span></div>
+        <div class="info-row"><span class="info-label">상태</span><span class="info-val" id="cq-state">공백</span></div>
+        <div class="info-row"><span class="info-label">포화 조건</span><span class="info-val">(rear+1)%n = front</span></div>
+        <div class="controls" style="margin-top:14px;">
+          <button class="btn btn-enqueue" onclick="circEnqueue()">enQueue</button>
+          <button class="btn btn-dequeue" onclick="circDequeue()">deQueue</button>
+          <button class="btn btn-reset" onclick="circReset()">초기화</button>
+        </div>
+        <div class="log" id="circ-log" style="margin-top:10px;">버튼을 눌러 원형 큐를 체험하세요.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DEQUE ===== -->
+<div id="panel-deque" class="panel">
+  <div class="deque-wrap">
+    <div class="section-title">데크(Deque) — 양쪽 삽입/삭제 가능</div>
+    <div class="deque-arrows">
+      <span>◀ 삭제 / 삽입 ▶</span>
+      <span>◀ 삽입 / 삭제 ▶</span>
+    </div>
+    <div class="deque-row">
+      <div class="deque-label-l">front</div>
+      <div id="deque-cells" style="display:flex;gap:4px;"></div>
+      <div class="deque-label-r">rear</div>
+    </div>
+    <div class="controls" style="margin-top:14px;">
+      <button class="btn btn-dfront" onclick="dequeInsertFront()">insertFront</button>
+      <button class="btn btn-drear" onclick="dequeInsertRear()">insertRear</button>
+      <button class="btn btn-dfront" style="background:#c0392b;" onclick="dequeDeleteFront()">deleteFront</button>
+      <button class="btn btn-drear" style="background:#1a6ca8;" onclick="dequeDeleteRear()">deleteRear</button>
+      <button class="btn btn-reset" onclick="dequeReset()">초기화</button>
+    </div>
+    <div class="log" id="deque-log" style="margin-top:10px;">버튼을 눌러 데크를 체험하세요.</div>
+  </div>
+  <div class="queue-wrap">
+    <div class="section-title">데크 종류</div>
+    <table>
+      <tr><th>종류</th><th>별칭</th><th>삽입</th><th>삭제</th></tr>
+      <tr><td>입력 제한 데크</td><td><b>Scroll</b></td><td>한쪽만</td><td>양쪽 모두</td></tr>
+      <tr><td>출력 제한 데크</td><td><b>Shelf</b></td><td>양쪽 모두</td><td>한쪽만</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ===== COMPARE ===== -->
+<div id="panel-compare" class="panel">
+  <div class="compare-grid">
+    <div class="compare-card stack">
+      <h3>📚 스택 (Stack)</h3>
+      <table>
+        <tr><th>항목</th><th>내용</th></tr>
+        <tr><td>원리</td><td><span class="badge badge-lifo">LIFO</span></td></tr>
+        <tr><td>삽입</td><td>push (top)</td></tr>
+        <tr><td>삭제</td><td>pop (top)</td></tr>
+        <tr><td>구조</td><td>입구=출구</td></tr>
+        <tr><td>응용</td><td>함수호출, 수식변환</td></tr>
+      </table>
+    </div>
+    <div class="compare-card queue">
+      <h3>🚶 선형 큐 (Queue)</h3>
+      <table>
+        <tr><th>항목</th><th>내용</th></tr>
+        <tr><td>원리</td><td><span class="badge badge-fifo">FIFO</span></td></tr>
+        <tr><td>삽입</td><td>enQueue (rear)</td></tr>
+        <tr><td>삭제</td><td>deQueue (front)</td></tr>
+        <tr><td>초기</td><td>front=rear=-1</td></tr>
+        <tr><td>포화</td><td>rear = n-1</td></tr>
+      </table>
+    </div>
+    <div class="compare-card circular">
+      <h3>🔄 원형 큐 (Circular)</h3>
+      <table>
+        <tr><th>항목</th><th>내용</th></tr>
+        <tr><td>원리</td><td><span class="badge badge-fifo">FIFO</span></td></tr>
+        <tr><td>삽입</td><td>(rear+1) mod n</td></tr>
+        <tr><td>삭제</td><td>(front+1) mod n</td></tr>
+        <tr><td>초기</td><td>front=rear=0</td></tr>
+        <tr><td>포화</td><td>(rear+1)%n=front</td></tr>
+      </table>
+    </div>
+    <div class="compare-card deque">
+      <h3>↔️ 데크 (Deque)</h3>
+      <table>
+        <tr><th>항목</th><th>내용</th></tr>
+        <tr><td>원리</td><td>양방향</td></tr>
+        <tr><td>삽입</td><td>front 또는 rear</td></tr>
+        <tr><td>삭제</td><td>front 또는 rear</td></tr>
+        <tr><td>Scroll</td><td>입력 한쪽, 삭제 양쪽</td></tr>
+        <tr><td>Shelf</td><td>입력 양쪽, 삭제 한쪽</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="queue-wrap" style="margin-top:16px;">
+    <div class="section-title">자료구조 분류</div>
+    <table>
+      <tr><th>분류</th><th>자료구조</th></tr>
+      <tr><td>선형 구조</td><td>스택, 큐, 데크, 배열, 연결 리스트</td></tr>
+      <tr><td>비선형 구조</td><td><b>그래프, 트리</b></td></tr>
+    </table>
+  </div>
+</div>
+
+<script>
+// ===== TABS =====
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ===== LINEAR QUEUE =====
+const N = 5;
+let lq = { data: new Array(N).fill(null), front: -1, rear: -1 };
+const VALUES = ['화사', '솔라', '문별', '휘인', '화사2'];
+let lqIdx = 0;
+
+function renderLinear() {
+  const cells = document.getElementById('linear-cells');
+  const ptrs = document.getElementById('linear-ptrs');
+  cells.innerHTML = '';
+  ptrs.innerHTML = '';
+  
+  const arrowL = document.createElement('div');
+  arrowL.className = 'arrow-label';
+  arrowL.innerHTML = '← 출구';
+  cells.appendChild(arrowL);
+  
+  const arrowLP = document.createElement('div');
+  arrowLP.style.width = '60px';
+  ptrs.appendChild(arrowLP);
+
+  for (let i = 0; i < N; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    if (lq.data[i]) {
+      cell.classList.add('filled');
+      cell.textContent = lq.data[i];
+    }
+    if (i === lq.front && lq.front >= 0) cell.classList.add('front-cell');
+    if (i === lq.rear && lq.rear >= 0) cell.classList.add('rear-cell');
+    cell.innerHTML += `<div style="position:absolute;top:1px;right:3px;font-size:9px;color:#bbb;">[${i}]</div>`;
+    cells.appendChild(cell);
+    
+    const ptr = document.createElement('div');
+    ptr.className = 'pointer';
+    let labels = [];
+    if (i === lq.front && lq.front >= 0) labels.push('<span class="ptr-front">▲ front</span>');
+    if (i === lq.rear && lq.rear >= 0) labels.push('<span class="ptr-rear">▲ rear</span>');
+    ptr.innerHTML = labels.join('<br>');
+    ptrs.appendChild(ptr);
+  }
+  
+  const arrowR = document.createElement('div');
+  arrowR.className = 'arrow-label';
+  arrowR.innerHTML = '입구 →';
+  cells.appendChild(arrowR);
+
+  const st = document.getElementById('linear-status');
+  let stateStr = lq.front === lq.rear ? '공백' : (lq.rear === N-1 ? '포화' : '정상');
+  st.innerHTML = `front = <span>${lq.front}</span> &nbsp;|&nbsp; rear = <span>${lq.rear}</span> &nbsp;|&nbsp; 상태: <span>${stateStr}</span>`;
+}
+
+function linearEnqueue() {
+  if (lq.rear === N - 1) {
+    document.getElementById('linear-log').textContent = '⚠️ 포화 상태! 더 이상 삽입 불가 (rear = n-1)';
+    return;
+  }
+  const val = VALUES[lqIdx % VALUES.length];
+  lqIdx++;
+  lq.rear++;
+  lq.data[lq.rear] = val;
+  document.getElementById('linear-log').textContent = `enQueue("${val}") → rear = ${lq.rear}, Q[${lq.rear}] = "${val}"`;
+  renderLinear();
+}
+
+function linearDequeue() {
+  if (lq.front === lq.rear) {
+    document.getElementById('linear-log').textContent = '⚠️ 공백 상태! 삭제할 데이터 없음';
+    return;
+  }
+  lq.front++;
+  const val = lq.data[lq.front];
+  lq.data[lq.front] = null;
+  document.getElementById('linear-log').textContent = `deQueue() → front = ${lq.front}, "${val}" 제거됨`;
+  renderLinear();
+}
+
+function linearReset() {
+  lq = { data: new Array(N).fill(null), front: -1, rear: -1 };
+  lqIdx = 0;
+  document.getElementById('linear-log').textContent = '큐를 초기화했습니다. (front = rear = -1)';
+  renderLinear();
+}
+
+renderLinear();
+
+// ===== CIRCULAR QUEUE =====
+const CN = 6;
+let cq = { data: new Array(CN).fill(null), front: 0, rear: 0 };
+const CVALS = ['A', 'B', 'C', 'D', 'E', 'F'];
+let cqIdx = 0;
+
+function drawCircQueue() {
+  const svg = document.getElementById('circ-svg');
+  svg.innerHTML = '';
+  const cx = 110, cy = 110, r = 80, cellR = 26;
+  
+  for (let i = 0; i < CN; i++) {
+    const angle = (i / CN) * 2 * Math.PI - Math.PI / 2;
+    const x = cx + r * Math.cos(angle);
+    const y = cy + r * Math.sin(angle);
+    
+    const isFront = i === cq.front;
+    const isRear = i === cq.rear;
+    const hasDatum = cq.data[i] !== null;
+    
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', x);
+    circle.setAttribute('cy', y);
+    circle.setAttribute('r', cellR);
+    circle.setAttribute('fill', hasDatum ? '#e8d5f5' : '#f5f5f5');
+    circle.setAttribute('stroke', isFront ? '#e74c3c' : isRear ? '#2980b9' : '#ddd');
+    circle.setAttribute('stroke-width', (isFront || isRear) ? 3 : 1.5);
+    svg.appendChild(circle);
+    
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', x);
+    text.setAttribute('y', y + 1);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'middle');
+    text.setAttribute('font-size', '14');
+    text.setAttribute('font-weight', '700');
+    text.setAttribute('fill', '#4a235a');
+    text.textContent = cq.data[i] || '';
+    svg.appendChild(text);
+    
+    const idxText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    idxText.setAttribute('x', x);
+    idxText.setAttribute('y', y + 14);
+    idxText.setAttribute('text-anchor', 'middle');
+    idxText.setAttribute('dominant-baseline', 'middle');
+    idxText.setAttribute('font-size', '9');
+    idxText.setAttribute('fill', '#aaa');
+    idxText.textContent = `[${i}]`;
+    svg.appendChild(idxText);
+    
+    if (isFront || isRear) {
+      const lAngle = angle + 0.3 * (isFront ? 1 : -1);
+      const lx = cx + (r + 38) * Math.cos(angle);
+      const ly = cy + (r + 38) * Math.sin(angle);
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', lx);
+      label.setAttribute('y', ly);
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('dominant-baseline', 'middle');
+      label.setAttribute('font-size', '11');
+      label.setAttribute('font-weight', '700');
+      label.setAttribute('fill', isFront ? '#e74c3c' : '#2980b9');
+      label.textContent = isFront ? 'front' : 'rear';
+      svg.appendChild(label);
+    }
+  }
+  
+  document.getElementById('cq-front').textContent = cq.front;
+  document.getElementById('cq-rear').textContent = cq.rear;
+  const isEmpty = cq.front === cq.rear;
+  const isFull = (cq.rear + 1) % CN === cq.front;
+  document.getElementById('cq-state').textContent = isEmpty ? '공백' : isFull ? '포화' : '정상';
+}
+
+function circEnqueue() {
+  if ((cq.rear + 1) % CN === cq.front) {
+    document.getElementById('circ-log').textContent = `⚠️ 포화! (rear+1)%${CN} = front`;
+    return;
+  }
+  const val = CVALS[cqIdx % CVALS.length];
+  cqIdx++;
+  cq.rear = (cq.rear + 1) % CN;
+  cq.data[cq.rear] = val;
+  document.getElementById('circ-log').textContent = `enQueue("${val}") → rear = (rear+1)%${CN} = ${cq.rear}`;
+  drawCircQueue();
+}
+
+function circDequeue() {
+  if (cq.front === cq.rear) {
+    document.getElementById('circ-log').textContent = '⚠️ 공백 상태!';
+    return;
+  }
+  cq.front = (cq.front + 1) % CN;
+  const val = cq.data[cq.front];
+  cq.data[cq.front] = null;
+  document.getElementById('circ-log').textContent = `deQueue() → front = (front+1)%${CN} = ${cq.front}, "${val}" 제거`;
+  drawCircQueue();
+}
+
+function circReset() {
+  cq = { data: new Array(CN).fill(null), front: 0, rear: 0 };
+  cqIdx = 0;
+  document.getElementById('circ-log').textContent = '초기화. front = rear = 0';
+  drawCircQueue();
+}
+
+drawCircQueue();
+
+// ===== DEQUE =====
+let dq = [];
+const DVALS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+let dqFrontIdx = 0, dqRearIdx = 0;
+
+function renderDeque() {
+  const container = document.getElementById('deque-cells');
+  container.innerHTML = '';
+  const MAX = 7;
+  const display = [];
+  
+  for (let i = 0; i < MAX; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    if (i < dq.length) {
+      cell.classList.add('filled');
+      cell.textContent = dq[i];
+    }
+    container.appendChild(cell);
+  }
+}
+
+function dequeInsertFront() {
+  if (dq.length >= 7) { document.getElementById('deque-log').textContent = '⚠️ 가득 참!'; return; }
+  const val = DVALS[dqFrontIdx % DVALS.length];
+  dqFrontIdx++;
+  dq.unshift(val);
+  document.getElementById('deque-log').textContent = `insertFront("${val}") → front에서 삽입`;
+  renderDeque();
+}
+
+function dequeInsertRear() {
+  if (dq.length >= 7) { document.getElementById('deque-log').textContent = '⚠️ 가득 참!'; return; }
+  const val = DVALS[dqRearIdx % DVALS.length];
+  dqRearIdx++;
+  dq.push(val);
+  document.getElementById('deque-log').textContent = `insertRear("${val}") → rear에서 삽입`;
+  renderDeque();
+}
+
+function dequeDeleteFront() {
+  if (dq.length === 0) { document.getElementById('deque-log').textContent = '⚠️ 비어있음!'; return; }
+  const val = dq.shift();
+  document.getElementById('deque-log').textContent = `deleteFront() → "${val}" 제거됨`;
+  renderDeque();
+}
+
+function dequeDeleteRear() {
+  if (dq.length === 0) { document.getElementById('deque-log').textContent = '⚠️ 비어있음!'; return; }
+  const val = dq.pop();
+  document.getElementById('deque-log').textContent = `deleteRear() → "${val}" 제거됨`;
+  renderDeque();
+}
+
+function dequeReset() {
+  dq = [];
+  dqFrontIdx = 0; dqRearIdx = 0;
+  document.getElementById('deque-log').textContent = '초기화되었습니다.';
+  renderDeque();
+}
+
+renderDeque();
+</script>
+</body>
+</html>
